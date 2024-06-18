@@ -1,2 +1,4 @@
 .env
-.go.sum
+go.sum
+.air.toml
+/tmp

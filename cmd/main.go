@@ -1,33 +1,38 @@
 package main
 
 import (
-	"restfull-api/m/v2/api/routes"
+	"database/sql"
+	"log"
+
 	"restfull-api/m/v2/config"
-	"restfull-api/m/v2/managers"
-	"time"
+	"restfull-api/m/v2/handler"
+	"restfull-api/m/v2/repository"
+	"restfull-api/m/v2/usecase"
 
 	"github.com/gin-gonic/gin"
+	_ "github.com/lib/pq"
 )
 
 func main() {
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
 
-	timeout := time.Duration(2) * time.Second
-	cfg, _ := config.NewConfig()
-	db, _ := managers.Application(cfg)
+	db, err := sql.Open(cfg.DbDriver, cfg.DbConnectionString())
+	if err != nil {
+		log.Fatalf("Failed to connect to the database: %v", err)
+	}
+	defer db.Close()
 
-	gin := gin.Default()
+	userRepository := repository.NewUserRepository(db)
+	userUseCase := &usecase.UserUseCase{UserRepo: userRepository}
 
-	// r.GET("/api", func(c *gin.Context) {
-	// 	c.JSON(http.StatusOK, gin.H{
-	// 		"message": "Server is Online",
-	// 	})
+	router := gin.Default()
+	handler.NewUserHandler(router, userUseCase)
 
-	//   if condition {
-
-	//   }
-	// })
-
-	routes.Setup(cfg, timeout, db, gin)
-
-	gin.Run(cfg.API.ApiPort)
+	addr := cfg.ApiHost + ":" + cfg.ApiPort
+	if err := router.Run(addr); err != nil {
+		log.Fatalf("Failed to run server: %v", err)
+	}
 }
